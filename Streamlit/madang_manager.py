@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS Orders (
 # --------------------------
 # 고객
 if con.execute("SELECT COUNT(*) FROM Customer").fetchone()[0] == 0:
-    con.execute("INSERT INTO Customer VALUES (1, '이민정', '광명', '010-1111-1111')")
-    con.execute("INSERT INTO Customer VALUES (2, '송민서', '일산', '010-2222-2222')")
+    con.execute("INSERT INTO Customer VALUES (1, '이민정', '서울', '010-1111-1111')")
+    con.execute("INSERT INTO Customer VALUES (2, '송민서', '부산', '010-2222-2222')")
 
 # 책
 if con.execute("SELECT COUNT(*) FROM Book").fetchone()[0] == 0:
@@ -80,25 +80,31 @@ if len(name_input) > 0:
     tab1.write(result)
 
     # custid 가져오기 (주문이 없어도 고객번호 가져오기)
-    custid = con.execute(f"SELECT custid FROM Customer WHERE name='{name_input}'").fetchone()[0]
+    cust_row = con.execute(f"SELECT custid FROM Customer WHERE name='{name_input}'").fetchone()
+    if cust_row is not None:
+        custid = cust_row[0]
+        tab2.write("고객번호: " + str(custid))
+        tab2.write("고객명: " + name_input)
 
-    tab2.write("고객번호: " + str(custid))
-    tab2.write("고객명: " + name_input)
+        # 구매 서적 선택
+        books = con.execute("SELECT bookid, bookname FROM Book").fetchall()
+        select_book = tab2.selectbox("구매 서적:", [f"{b[0]}, {b[1]}" for b in books])
 
-    # 구매 서적 선택
-    books = con.execute("SELECT bookid, bookname FROM Book").fetchall()
-    select_book = tab2.selectbox("구매 서적:", [f"{b[0]}, {b[1]}" for b in books])
+        # 금액 입력
+        price = tab2.text_input("금액")
 
-    # 금액 입력
-    price = tab2.text_input("금액")
-
-    # 거래 입력
-    if tab2.button("거래 입력"):
-        if select_book and price:
-            bookid = int(select_book.split(",")[0])
-            orderid = con.execute("SELECT COALESCE(MAX(orderid),0)+1 FROM Orders").fetchone()[0]
-            dt = time.strftime('%Y-%m-%d', time.localtime())
-            con.execute(
-                f"INSERT INTO Orders VALUES ({orderid},{custid},{bookid},{price},'{dt}')"
-            )
-            tab2.write("거래가 입력되었습니다.")
+        # 거래 입력
+        if tab2.button("거래 입력"):
+            if select_book and price:
+                try:
+                    bookid = int(select_book.split(",")[0])
+                    orderid = con.execute("SELECT COALESCE(MAX(orderid),0)+1 FROM Orders").fetchone()[0]
+                    dt = time.strftime('%Y-%m-%d', time.localtime())
+                    con.execute(
+                        f"INSERT INTO Orders VALUES ({orderid},{custid},{bookid},{price},'{dt}')"
+                    )
+                    tab2.success("거래가 입력되었습니다.")
+                except Exception as e:
+                    tab2.error(f"거래 입력 중 오류 발생: {e}")
+    else:
+        tab2.warning("입력한 이름의 고객이 존재하지 않습니다.")
