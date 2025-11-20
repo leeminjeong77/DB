@@ -1,0 +1,90 @@
+import streamlit as st
+import pandas as pd
+import duckdb
+import time
+
+# --------------------------
+# 1️⃣ DuckDB 연결
+# --------------------------
+con = duckdb.connect('madang.duckdb')  # 앱 내 DB 파일
+
+# --------------------------
+# 2️⃣ 테이블 생성 (없으면 생성)
+# --------------------------
+con.execute("""
+CREATE TABLE IF NOT EXISTS Customer (
+    custid INTEGER PRIMARY KEY,
+    name TEXT,
+    address TEXT,
+    phone TEXT
+)
+""")
+con.execute("""
+CREATE TABLE IF NOT EXISTS Book (
+    bookid INTEGER PRIMARY KEY,
+    bookname TEXT
+)
+""")
+con.execute("""
+CREATE TABLE IF NOT EXISTS Orders (
+    orderid INTEGER PRIMARY KEY,
+    custid INTEGER,
+    bookid INTEGER,
+    saleprice INTEGER,
+    orderdate DATE
+)
+""")
+
+# --------------------------
+# 3️⃣ 초기 데이터 삽입 (없으면)
+# --------------------------
+if con.execute("SELECT COUNT(*) FROM Customer").fetchone()[0] == 0:
+    con.execute("INSERT INTO Customer VALUES (1, '이민정', '', '')")
+
+if con.execute("SELECT COUNT(*) FROM Book").fetchone()[0] == 0:
+    con.execute("INSERT INTO Book VALUES (1, '파이썬 입문')")
+    con.execute("INSERT INTO Book VALUES (2, '데이터 분석 기초')")
+
+# --------------------------
+# 4️⃣ Streamlit UI
+# --------------------------
+tab1, tab2 = st.tabs(["고객조회", "거래 입력"])
+
+name = tab1.text_input("고객명")
+result = pd.DataFrame()
+select_book = ""
+
+if len(name) > 0:
+    # 고객 주문 정보 조회
+    query_sql = f"""
+    SELECT c.custid, c.name, b.bookname, o.orderdate, o.saleprice
+    FROM Customer c
+    LEFT JOIN Orders o ON c.custid = o.custid
+    LEFT JOIN Book b ON o.bookid = b.bookid
+    WHERE c.name = '{name}'
+    """
+    result = con.execute(query_sql).fetchdf()
+    tab1.write(result)
+
+    if not result.empty:
+        custid = result['custid'][0]
+        tab2.write("고객번호: " + str(custid))
+        tab2.write("고객명: " + name)
+
+        # 구매 서적 선택
+        books = con.execute("SELECT bookid, bookname FROM Book").fetchall()
+        select_book = tab2.selectbox("구매 서적:", [f"{b[0]}, {b[1]}" for b in books])
+
+        # 금액 입력
+        price = tab2.text_input("금액")
+
+        # 거래 입력
+        if tab2.button("거래 입력"):
+            if select_book and price:
+                bookid = int(select_book.split(",")[0])
+                orderid = con.execute("SELECT COALESCE(MAX(orderid),0)+1 FROM Orders").fetchone()[0]
+                dt = time.strftime('%Y-%m-%d', time.localtime())
+                con.execute(
+                    f"INSERT INTO Orders VALUES ({orderid},{custid},{bookid},{price},'{dt}')"
+                )
+                tab2.write("거래가 입력되었습니다.")
