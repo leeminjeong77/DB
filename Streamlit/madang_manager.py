@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS Orders (
 # --------------------------
 if con.execute("SELECT COUNT(*) FROM Customer").fetchone()[0] == 0:
     con.execute("INSERT INTO Customer VALUES (1, '이민정', '', '')")
-
+    con.execute("INSERT INTO Customer VALUES (2, '송민서', '', '')")
+    
 if con.execute("SELECT COUNT(*) FROM Book").fetchone()[0] == 0:
     con.execute("INSERT INTO Book VALUES (1, '파이썬 입문')")
     con.execute("INSERT INTO Book VALUES (2, '데이터 분석 기초')")
@@ -88,3 +89,4 @@ if len(name) > 0:
                     f"INSERT INTO Orders VALUES ({orderid},{custid},{bookid},{price},'{dt}')"
                 )
                 tab2.write("거래가 입력되었습니다.")
+
