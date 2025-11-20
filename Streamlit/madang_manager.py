@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS Orders (
 # --------------------------
 # 고객
 if con.execute("SELECT COUNT(*) FROM Customer").fetchone()[0] == 0:
-    con.execute("INSERT INTO Customer VALUES (1, '이민정', '서울', '010-1111-1111')")
-    con.execute("INSERT INTO Customer VALUES (2, '송민서', '부산', '010-2222-2222')")
+    con.execute("INSERT INTO Customer VALUES (1, '이민정', '광명', '010-1111-1111')")
+    con.execute("INSERT INTO Customer VALUES (2, '송민서', '일산', '010-2222-2222')")
 
 # 책
 if con.execute("SELECT COUNT(*) FROM Book").fetchone()[0] == 0:
@@ -60,43 +60,45 @@ if con.execute("SELECT COUNT(*) FROM Orders").fetchone()[0] == 0:
 # --------------------------
 tab1, tab2 = st.tabs(["고객조회", "거래 입력"])
 
-name = tab1.text_input("고객명")
-select_book = ""
+# 고객명 입력
+name_input = tab1.text_input("고객명")
 
-if len(name) > 0:
+if len(name_input) > 0:
     # 고객 주문 정보 조회 (주문 없으면 기본값 표시)
     query_sql = f"""
-    SELECT c.custid, c.name, 
+    SELECT c.custid, c.name,
            COALESCE(b.bookname, '주문없음') AS bookname,
            COALESCE(o.orderdate, '') AS orderdate,
            COALESCE(o.saleprice, 0) AS saleprice
     FROM Customer c
     LEFT JOIN Orders o ON c.custid = o.custid
     LEFT JOIN Book b ON o.bookid = b.bookid
-    WHERE c.name = '{name}'
+    WHERE c.name = '{name_input}'
+    ORDER BY o.orderdate ASC
     """
     result = con.execute(query_sql).fetchdf()
     tab1.write(result)
 
-    if not result.empty:
-        custid = result['custid'][0]
-        tab2.write("고객번호: " + str(custid))
-        tab2.write("고객명: " + name)
+    # custid 가져오기 (주문이 없어도 고객번호 가져오기)
+    custid = con.execute(f"SELECT custid FROM Customer WHERE name='{name_input}'").fetchone()[0]
 
-        # 구매 서적 선택
-        books = con.execute("SELECT bookid, bookname FROM Book").fetchall()
-        select_book = tab2.selectbox("구매 서적:", [f"{b[0]}, {b[1]}" for b in books])
+    tab2.write("고객번호: " + str(custid))
+    tab2.write("고객명: " + name_input)
 
-        # 금액 입력
-        price = tab2.text_input("금액")
+    # 구매 서적 선택
+    books = con.execute("SELECT bookid, bookname FROM Book").fetchall()
+    select_book = tab2.selectbox("구매 서적:", [f"{b[0]}, {b[1]}" for b in books])
 
-        # 거래 입력
-        if tab2.button("거래 입력"):
-            if select_book and price:
-                bookid = int(select_book.split(",")[0])
-                orderid = con.execute("SELECT COALESCE(MAX(orderid),0)+1 FROM Orders").fetchone()[0]
-                dt = time.strftime('%Y-%m-%d', time.localtime())
-                con.execute(
-                    f"INSERT INTO Orders VALUES ({orderid},{custid},{bookid},{price},'{dt}')"
-                )
-                tab2.write("거래가 입력되었습니다.")
+    # 금액 입력
+    price = tab2.text_input("금액")
+
+    # 거래 입력
+    if tab2.button("거래 입력"):
+        if select_book and price:
+            bookid = int(select_book.split(",")[0])
+            orderid = con.execute("SELECT COALESCE(MAX(orderid),0)+1 FROM Orders").fetchone()[0]
+            dt = time.strftime('%Y-%m-%d', time.localtime())
+            con.execute(
+                f"INSERT INTO Orders VALUES ({orderid},{custid},{bookid},{price},'{dt}')"
+            )
+            tab2.write("거래가 입력되었습니다.")
